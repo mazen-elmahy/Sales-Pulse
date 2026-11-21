@@ -1,0 +1,322 @@
+{
+  "name": "DEPI_Final Pro",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "salespulse/dashboard-metrics",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "bbb5d0aa-916b-497e-a010-ee04e86bea74",
+      "name": "Webhook",
+      "webhookId": "d6680dab-8e65-4e00-8793-4e73caaff029"
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $input.first().json;\nconst headers = request.headers ?? {};\nconst query = request.query ?? {};\n\nconst authHeader =\n  headers.authorization ??\n  headers.Authorization ??\n  \"\";\n\nconst tokenMatch = authHeader.match(/^Bearer\\s+(.+)$/i);\nconst token = tokenMatch?.[1]?.trim() ?? \"\";\n\nconst errors = [];\n\nif (!token) {\n  errors.push(\"Missing or invalid Authorization Bearer token\");\n}\n\nconst TIMEZONE = \"Africa/Cairo\";\nconst DEFAULT_RANGE_DAYS = 30;\nconst MAX_RANGE_DAYS = 366;\n\nconst getCairoDate = (date = new Date()) => {\n  const parts = new Intl.DateTimeFormat(\"en-CA\", {\n    timeZone: TIMEZONE,\n    year: \"numeric\",\n    month: \"2-digit\",\n    day: \"2-digit\"\n  }).formatToParts(date);\n\n  const values = Object.fromEntries(\n    parts.map(part => [part.type, part.value])\n  );\n\n  return `${values.year}-${values.month}-${values.day}`;\n};\n\nconst shiftDate = (dateString, days) => {\n  const date = new Date(`${dateString}T00:00:00Z`);\n  date.setUTCDate(date.getUTCDate() + days);\n  return date.toISOString().slice(0, 10);\n};\n\nconst parseDate = (value, field) => {\n  if (!value) return null;\n\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {\n    errors.push(`${field} must use YYYY-MM-DD format`);\n    return null;\n  }\n\n  const date = new Date(`${value}T00:00:00Z`);\n\n  if (\n    Number.isNaN(date.getTime()) ||\n    date.toISOString().slice(0, 10) !== value\n  ) {\n    errors.push(`${field} is not a valid date`);\n    return null;\n  }\n\n  return value;\n};\n\nconst today = getCairoDate();\n\nlet from = parseDate(query.from, \"from\");\nlet to = parseDate(query.to, \"to\");\n\nto ??= today;\nfrom ??= shiftDate(to, -(DEFAULT_RANGE_DAYS - 1));\n\nif (from > to) {\n  errors.push(\"'from' must be earlier than or equal to 'to'\");\n}\n\nconst rangeDays =\n  Math.round(\n    (Date.parse(`${to}T00:00:00Z`) -\n     Date.parse(`${from}T00:00:00Z`)) / 86400000\n  ) + 1;\n\nif (rangeDays > MAX_RANGE_DAYS) {\n  errors.push(`Date range cannot exceed ${MAX_RANGE_DAYS} days`);\n}\n\nconst parseLimit = (value, fallback, max, field) => {\n  if (value === undefined || value === \"\") return fallback;\n\n  const number = Number(value);\n\n  if (!Number.isInteger(number) || number < 1 || number > max) {\n    errors.push(`${field} must be an integer between 1 and ${max}`);\n    return fallback;\n  }\n\n  return number;\n};\n\nconst topLimit = parseLimit(query.top_limit, 5, 20, \"top_limit\");\nconst recentLimit = parseLimit(query.recent_limit, 20, 100, \"recent_limit\");\n\nreturn [{\n  json: {\n    valid: errors.length === 0,\n    errors,\n    token,\n    from,\n    to,\n    range_days: rangeDays,\n    top_limit: topLimit,\n    recent_limit: recentLimit,\n    timezone: TIMEZONE,\n    default_range_days: DEFAULT_RANGE_DAYS,\n    max_range_days: MAX_RANGE_DAYS\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "0e772e8a-f01c-4cb0-82b0-309fe272055f",
+      "name": "Prepare & Validate"
+    },
+    {
+      "parameters": {
+        "url": "https://hspzkuwvnmpjyxppnbsu.supabase.co/auth/v1/user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_aAWrvM71aKMQzlVHXl2BqQ_5VN5BqDU"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Prepare & Validate').first().json.token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        688,
+        -16
+      ],
+      "id": "4bab4def-1a2c-47f6-aa08-7bd2cbf24b82",
+      "name": "Verify Supabase Session",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst response = $input.first().json;\nconst prepared = $('Prepare & Validate').first().json;\n\n// Add the actual admin emails here.\nconst ADMIN_EMAILS = [\n  // \"admin@example.com\"\n];\n\nconst httpStatus = response.statusCode;\nconst user = response.body ?? response;\n\nconst reject = (statusCode, message) => [{\n  json: {\n    authorized: false,\n    statusCode,\n    error: message\n  }\n}];\n\n// 1. Validate request parameters\nif (!prepared.valid) {\n  return reject(400, prepared.errors.join(\"; \"));\n}\n\n// 2. Validate Supabase session\nif (\n  (httpStatus && httpStatus !== 200) ||\n  !user?.id ||\n  !user?.email\n) {\n  return reject(401, \"Invalid or expired Supabase session\");\n}\n\n// 3. Require confirmed email\nif (!user.email_confirmed_at) {\n  return reject(403, \"Email address is not confirmed\");\n}\n\n// 4. Check admin authorization\nconst email = user.email.toLowerCase();\nconst isAdminEmail = ADMIN_EMAILS\n  .map(item => item.toLowerCase())\n  .includes(email);\n\nconst hasAdminRole =\n  user.app_metadata?.salespulse_role === \"admin\";\n\nif (!isAdminEmail && !hasAdminRole) {\n  return reject(403, \"Admin access required\");\n}\n\n// 5. Prepare dashboard query parameters\nreturn [{\n  json: {\n    authorized: true,\n    statusCode: 200,\n    user: {\n      id: user.id,\n      email: user.email\n    },\n    filters: {\n      from: prepared.from,\n      to: prepared.to,\n      top_limit: prepared.top_limit,\n      recent_limit: prepared.recent_limit,\n      timezone: prepared.timezone,\n      default_range_days: prepared.default_range_days,\n      max_range_days: prepared.max_range_days,\n      interest_window_hours: prepared.interest_window_hours\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -208
+      ],
+      "id": "77d16094-1060-447e-b37c-7214f181929d",
+      "name": "Authorize & Prepare Query"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\nWITH params AS (\n    SELECT\n        COALESCE(\n            NULLIF($1, '')::date,\n            CURRENT_DATE - 29\n        ) AS date_from,\n        COALESCE(\n            NULLIF($2, '')::date,\n            CURRENT_DATE\n        ) AS date_to,\n        COALESCE(NULLIF($3, '')::int, 5) AS top_limit,\n        COALESCE(NULLIF($4, '')::int, 20) AS recent_limit\n),\n\nperiod_orders AS (\n    SELECT o.*\n    FROM orders o\n    CROSS JOIN params p\n    WHERE o.created_at >= p.date_from\n      AND o.created_at < p.date_to + 1\n),\n\nsuccessful_orders AS (\n    SELECT *\n    FROM period_orders\n    WHERE status = 'closed'\n      AND result = 'successful'\n),\n\nsuccessful_order_subtotals AS (\n    SELECT\n        oi.order_id,\n        SUM(oi.qty * oi.unit_price) AS subtotal\n    FROM order_items oi\n    JOIN successful_orders so ON so.id = oi.order_id\n    GROUP BY oi.order_id\n),\n\nsales_metrics AS (\n    SELECT\n        COUNT(*) AS confirmed_orders,\n        COALESCE(SUM(so.total), 0) AS total_sales,\n        COALESCE(AVG(so.total), 0) AS average_order_value,\n        COALESCE(\n            SUM(COALESCE(s.subtotal, so.total) - so.total),\n            0\n        ) AS discount_value,\n        COALESCE(SUM(COALESCE(s.subtotal, so.total)), 0) AS subtotal\n    FROM successful_orders so\n    LEFT JOIN successful_order_subtotals s\n        ON s.order_id = so.id\n),\n\norder_counts AS (\n    SELECT\n        COUNT(*) AS total_orders,\n        COUNT(*) FILTER (\n            WHERE status = 'closed' AND result = 'successful'\n        ) AS confirmed_orders,\n        COUNT(*) FILTER (\n            WHERE status = 'closed' AND result = 'not_successful'\n        ) AS failed_orders,\n        COUNT(*) FILTER (\n            WHERE status = 'open'\n        ) AS pending_orders\n    FROM period_orders\n),\n\ntop_products AS (\n    SELECT\n        p.id AS product_id,\n        p.name AS product_name,\n        SUM(oi.qty) AS units_sold,\n        SUM(oi.qty * oi.unit_price) AS gross_value\n    FROM successful_orders so\n    JOIN order_items oi ON oi.order_id = so.id\n    JOIN products p ON p.id = oi.product_id\n    GROUP BY p.id, p.name\n    ORDER BY units_sold DESC, gross_value DESC\n    LIMIT (SELECT top_limit FROM params)\n),\n\nrecent_orders AS (\n    SELECT\n        o.id AS order_id,\n        o.status,\n        o.result,\n        o.total,\n        o.discount_percent,\n        o.created_at,\n        c.id AS customer_id,\n        COALESCE(c.name, c.username, 'Unknown') AS customer_name\n    FROM period_orders o\n    LEFT JOIN customers c ON c.id = o.customer_id\n    ORDER BY o.created_at DESC\n    LIMIT (SELECT recent_limit FROM params)\n),\n\ncustomer_metrics AS (\n    SELECT\n        COUNT(*) AS total_customers,\n        COUNT(*) FILTER (WHERE is_vip) AS vip_customers\n    FROM customers\n),\n\nreturning_customers AS (\n    SELECT COUNT(*) AS total\n    FROM (\n        SELECT customer_id\n        FROM orders\n        WHERE status = 'closed'\n          AND result = 'successful'\n          AND customer_id IS NOT NULL\n        GROUP BY customer_id\n        HAVING COUNT(*) > 1\n    ) returning\n),\n\nproduct_metrics AS (\n    SELECT\n        COUNT(*) AS total_products,\n        COUNT(*) FILTER (WHERE is_available) AS available_products\n    FROM products\n)\n\nSELECT jsonb_build_object(\n    'period', jsonb_build_object(\n        'from', params.date_from,\n        'to', params.date_to\n    ),\n\n    'sales_overview', jsonb_build_object(\n        'total_sales', sales_metrics.total_sales,\n        'subtotal', sales_metrics.subtotal,\n        'discount_value', sales_metrics.discount_value,\n        'average_order_value', sales_metrics.average_order_value\n    ),\n\n    'orders', jsonb_build_object(\n        'total', order_counts.total_orders,\n        'confirmed', order_counts.confirmed_orders,\n        'failed', order_counts.failed_orders,\n        'pending', order_counts.pending_orders\n    ),\n\n    'top_products', COALESCE(\n        (\n            SELECT jsonb_agg(to_jsonb(tp))\n            FROM top_products tp\n        ),\n        '[]'::jsonb\n    ),\n\n    'recent_orders', COALESCE(\n        (\n            SELECT jsonb_agg(to_jsonb(ro) ORDER BY ro.created_at DESC)\n            FROM recent_orders ro\n        ),\n        '[]'::jsonb\n    ),\n\n    'customers', jsonb_build_object(\n        'total', customer_metrics.total_customers,\n        'vip', customer_metrics.vip_customers,\n        'returning', returning_customers.total\n    ),\n\n    'products', jsonb_build_object(\n        'total', product_metrics.total_products,\n        'available', product_metrics.available_products\n    )\n) AS dashboard\nFROM params\nCROSS JOIN sales_metrics\nCROSS JOIN order_counts\nCROSS JOIN customer_metrics\nCROSS JOIN returning_customers\nCROSS JOIN product_metrics;\n",
+        "options": {
+          "queryReplacement": "={{ [   $('Authorize & Prepare Query').first().json.filters.from || '',   $('Authorize & Prepare Query').first().json.filters.to || '',   $('Authorize & Prepare Query').first().json.filters.top_limit,   $('Authorize & Prepare Query').first().json.filters.recent_limit ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1376,
+        -224
+      ],
+      "id": "2e6a8fec-006e-4ac6-96fe-2e47b0e19762",
+      "name": "Dashboard SQL",
+      "credentials": {
+        "postgres": {
+          "id": "uO2e8CxZ9vEb70Sf",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1584,
+        -224
+      ],
+      "id": "79b4b6cb-00c1-42c9-8bbf-a32dddfda13f",
+      "name": "Respond Success"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2aef871a-d919-4e23-9889-cf336e41620b",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        -208
+      ],
+      "id": "530549ac-bd49-4871-ad62-a18e1b2640c7",
+      "name": "Is Authorized?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  {\n    success: false,\n    error:\n      typeof $json.error === 'string'\n        ? $json.error\n        : (\n            $json.description ||\n            $json.message ||\n            $json.msg ||\n            'Request failed'\n          ),\n    statusCode: Number(\n      $json.statusCode ??\n      $json.httpCode ??\n      $json.status ??\n      500\n    )\n  }\n}}",
+        "options": {
+          "responseCode": "={{\n  Number(\n    $json.statusCode ??\n    $json.httpCode ??\n    $json.status ??\n    500\n  )\n}}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1104,
+        304
+      ],
+      "id": "1b9d1a16-2d2a-4f28-ae4b-7db48cfa1025",
+      "name": "Respond Error"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "796ce0c2-ec42-469e-8703-a6565c86cae6",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "2e7527ee-df67-4fa8-b4b3-5dc3e87c204e",
+      "name": "Is Request Valid?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare & Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare & Validate": {
+      "main": [
+        [
+          {
+            "node": "Is Request Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Supabase Session": {
+      "main": [
+        [
+          {
+            "node": "Authorize & Prepare Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorize & Prepare Query": {
+      "main": [
+        [
+          {
+            "node": "Is Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dashboard SQL": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Authorized?": {
+      "main": [
+        [
+          {
+            "node": "Dashboard SQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Request Valid?": {
+      "main": [
+        [
+          {
+            "node": "Verify Supabase Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9dedf0ca-ac72-4eec-8677-3bb1fc4c74fd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0bb74c02b2050571b1ef01efdf76e6361f6b536e6b40f3a819c6e3c7b101c39b"
+  },
+  "nodeGroups": [],
+  "id": "6tWYMf6PfMRM5oZ8",
+  "tags": []
+}

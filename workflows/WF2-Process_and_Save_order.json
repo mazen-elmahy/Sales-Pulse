@@ -1,0 +1,1289 @@
+{
+  "name": "Process and Save  order",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## THE PLACE OF SUPABASE DATA\n",
+        "height": 304,
+        "width": 272,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -16
+      ],
+      "id": "786fe2b2-eb2d-41ea-aa6d-700409f7af8a",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## THE PLACE OF WF1 \n",
+        "height": 272,
+        "width": 256,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        0
+      ],
+      "id": "08379150-b5f3-4481-8940-1ddd7da68897",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $('Normalize Input').first().json.chat_id }}",
+        "message": "=🛒 Order Summary\n\nName: {{ $json.display_name }}\nPhone: {{ $json.phone }}\nAddress: {{ $json.delivery_address }}\n\nItems:\n{{ $json.items_text }}\n\nSubtotal: {{ $json.subtotal }} EGP\nDiscount{{ $json.discount_percent > 0 ? ' (' + $json.discount_reason + ' ' + $json.discount_percent + '%)' : '' }}: {{ $json.discount_amount }} EGP\nTotal: {{ $json.total }} EGP\n\nPayment: Cash on delivery\n\nPlease confirm your order.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": " ✅ Confirm Order",
+            "disapproveLabel": "❌Cancel Order"
+          }
+        },
+        "chatApproval": true,
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3104,
+        352
+      ],
+      "id": "762aff6a-366a-4768-8716-f5847ffc2294",
+      "name": "Ask For Confirmation",
+      "webhookId": "701b2d21-783c-40cf-88d6-16ddd8338ab6",
+      "credentials": {
+        "telegramApi": {
+          "id": "02G9eguVr1WjKvDj",
+          "name": "Sales bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "6a93f969-98c1-4f97-934e-72efa9da0419",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        3328,
+        352
+      ],
+      "id": "71de2512-d3c9-4ace-b17e-2b63a548d303",
+      "name": "Approved"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Normalize Input').first().json.chat_id }}",
+        "text": "=✅ Your order #{{ $('Insert into orders').first().json.id }} is confirmed!\n\nItems:\n{{ $('Calculate Totals').first().json.items_text }}\n\nSubtotal: {{ $('Calculate Totals').first().json.subtotal }} EGP\nDiscount: {{ $('Calculate Totals').first().json.discount_amount }} EGP\nTotal: {{ $('Calculate Totals').first().json.total }} EGP\n\nDelivery to: {{ $('Calculate Totals').first().json.delivery_address }}\nPhone: {{ $('Calculate Totals').first().json.phone }}\nPayment: Cash on delivery\n\n{{ $('Calculate Totals').first().json.becomes_vip ? '🌟 You are now a VIP customer! You will get a VIP discount on your next orders.' : '' }}\nThank you for your order! 🎉",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        5104,
+        256
+      ],
+      "id": "f746465e-2ee0-44ac-8903-ecead414d2fb",
+      "name": "Send Order Confirmation&Receipt",
+      "webhookId": "65dc17ee-2b2d-4e4f-bfb8-be86c605d010",
+      "credentials": {
+        "telegramApi": {
+          "id": "02G9eguVr1WjKvDj",
+          "name": "Sales bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "orders",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $('Calculate Totals').first().json.customer_id }}"
+            },
+            {
+              "fieldId": "total",
+              "fieldValue": "={{ $('Calculate Totals').first().json.total }}"
+            },
+            {
+              "fieldId": "discount_percent",
+              "fieldValue": "={{ $('Calculate Totals').first().json.discount_percent }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "closed"
+            },
+            {
+              "fieldId": "result",
+              "fieldValue": "successful"
+            },
+            {
+              "fieldId": "fulfillment_status",
+              "fieldValue": "preparing"
+            },
+            {
+              "fieldId": "delivery_address",
+              "fieldValue": "={{ $('Calculate Totals').first().json.delivery_address }}"
+            },
+            {
+              "fieldId": "closed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3552,
+        240
+      ],
+      "id": "c841772f-86a7-4b09-baca-0f1017034bc3",
+      "name": "Insert into orders",
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Normalize Input').first().json.chat_id }}",
+        "text": "=❌ Your order has been cancelled. \n  No order was saved.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3776,
+        480
+      ],
+      "id": "5e4dd9c4-491d-4e86-96aa-577de8168204",
+      "name": "Send Order Cancellation Reply",
+      "webhookId": "0e3ea804-0333-4b75-aed4-376b2e20a564",
+      "credentials": {
+        "telegramApi": {
+          "id": "02G9eguVr1WjKvDj",
+          "name": "Sales bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## WF1  AND ITS DATA FOR INSERT\n",
+        "width": 176,
+        "color": "#7A11E4"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        288,
+        48
+      ],
+      "id": "13d6c328-d5e3-49ff-99cf-955e6a351cd9",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telegram_user_id",
+              "type": "number"
+            },
+            {
+              "name": "display_name"
+            },
+            {
+              "name": "chat_id",
+              "type": "number"
+            },
+            {
+              "name": "phone"
+            },
+            {
+              "name": "delivery_address"
+            },
+            {
+              "name": "items",
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        432,
+        336
+      ],
+      "id": "61a3c5a8-19c1-46a4-97be-05409ba85a61",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "getAll",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "customers",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_user_id }}"
+            }
+          ]
+        }
+      },
+      "id": "3ee00480-c325-4b45-a08f-e8658a55b76c",
+      "name": "Find Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        672,
+        336
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1a2b3c4-0001-4000-8000-000000000001",
+              "leftValue": "={{ $json.id }}",
+              "operator": {
+                "operation": "notExists",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 4
+          }
+        },
+        "options": {}
+      },
+      "id": "99b155d7-9c23-4d22-8957-ee7612e691bc",
+      "name": "Is New Customer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        864,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "customers",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "telegram_id",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.telegram_user_id }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('When Executed by Another Workflow').first().json.display_name }}"
+            }
+          ]
+        }
+      },
+      "id": "72d5e972-5ea7-4e30-aa9a-0b21fe17cee6",
+      "name": "Create Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        256
+      ],
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0000001-0000-4000-8000-000000000001",
+              "name": "customer_id",
+              "type": "number",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000004",
+              "name": "chat_id",
+              "type": "number",
+              "value": "={{ $('When Executed by Another Workflow').first().json.chat_id }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000005",
+              "name": "telegram_user_id",
+              "type": "number",
+              "value": "={{ $('When Executed by Another Workflow').first().json.telegram_user_id }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000006",
+              "name": "display_name",
+              "type": "string",
+              "value": "={{ $('When Executed by Another Workflow').first().json.display_name }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000007",
+              "name": "phone",
+              "type": "string",
+              "value": "={{ $('When Executed by Another Workflow').first().json.phone }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000008",
+              "name": "delivery_address",
+              "type": "string",
+              "value": "={{ $('When Executed by Another Workflow').first().json.delivery_address }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000009",
+              "name": "items",
+              "type": "array",
+              "value": "={{ $('When Executed by Another Workflow').first().json.items }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000010",
+              "name": "is_vip",
+              "type": "boolean",
+              "value": "={{ $json.is_vip ?? false }}"
+            },
+            {
+              "id": "a0000001-0000-4000-8000-000000000011",
+              "name": "total_spent",
+              "type": "number",
+              "value": "={{ Number($json.total_spent ?? 0) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2bea5c82-06a1-42b1-a943-3e77a1466ef2",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1312,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b0000001-0000-4000-8000-000000000001",
+              "name": "status",
+              "type": "string",
+              "value": "saved"
+            },
+            {
+              "id": "b0000001-0000-4000-8000-000000000004",
+              "name": "order_id",
+              "type": "number",
+              "value": "={{ $('Insert into orders').first().json.id }}"
+            },
+            {
+              "id": "b0000001-0000-4000-8000-000000000002",
+              "name": "order_total",
+              "type": "number",
+              "value": "={{ $('Calculate Totals').first().json.total }}"
+            },
+            {
+              "id": "b0000001-0000-4000-8000-000000000003",
+              "name": "message",
+              "type": "string",
+              "value": "Order saved and the receipt was already sent to the customer."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "74af3baa-52a8-49c2-a94b-e3b4dbf605b5",
+      "name": "Result - Saved",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        5344,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b0000002-0000-4000-8000-000000000001",
+              "name": "status",
+              "type": "string",
+              "value": "cancelled"
+            },
+            {
+              "id": "b0000002-0000-4000-8000-000000000002",
+              "name": "message",
+              "type": "string",
+              "value": "The customer cancelled. No order was saved."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1e9f4bb-d334-4410-ac5c-84a360caa78e",
+      "name": "Result - Cancelled",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        4000,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nlet items = d.items;\nif (typeof items === 'string') {\n  try { items = JSON.parse(items); } catch (e) { items = null; }\n}\n\nconst errors = [];\nconst merged = {};\n\nif (!Array.isArray(items) || items.length === 0) {\n  errors.push('The order has no items.');\n} else {\n  for (const it of items) {\n    const pid = Number(it && it.product_id);\n    const qty = Number(it && it.quantity);\n    if (!Number.isSafeInteger(pid) || pid <= 0) { errors.push('One of the items has an invalid product.'); continue; }\n    if (!Number.isSafeInteger(qty) || qty <= 0) { errors.push('Quantity must be a positive whole number for each item.'); continue; }\n    merged[pid] = (merged[pid] || 0) + qty;\n  }\n}\n\nconst cart = Object.entries(merged).map(([pid, qty]) => ({ product_id: Number(pid), quantity: qty }));\nif (cart.length > 20) errors.push('Too many different products in one order (max 20).');\n\nconst phone = String(d.phone || '').replace(/[\\s-]/g, '').replace(/^\\+?20/, '0');\nif (!/^01[0125][0-9]{8}$/.test(phone)) {\n  errors.push('The phone number must be a valid Egyptian mobile number, for example 01012345678.');\n}\n\nconst address = String(d.delivery_address || '').trim();\nif (address.length < 10) {\n  errors.push('The delivery address is too short. Please send the area, street and building or apartment.');\n}\n\nconst customerId = Number(d.customer_id);\nif (!Number.isSafeInteger(customerId) || customerId <= 0) {\n  errors.push('The customer could not be identified.');\n}\n\nreturn {\n  json: {\n    ...d,\n    customer_id: customerId,\n    items: cart,\n    phone,\n    delivery_address: address,\n    product_ids: cart.map(i => i.product_id).join(','),\n    ok: errors.length === 0,\n    status: 'invalid_input',\n    message: errors.join(' ')\n  }\n};"
+      },
+      "id": "11952599-31b2-4d57-bd57-f491694f2e20",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d1000001-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          }
+        },
+        "options": {}
+      },
+      "id": "0f001d2c-6fd8-48c2-9c47-6dd53d90a3f5",
+      "name": "Input OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1760,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "getAll",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "products",
+        "returnAll": true,
+        "filterType": "string",
+        "filterString": "=id=in.({{ $json.product_ids }})"
+      },
+      "id": "0b744205-6854-4520-b7de-19e9c4057550",
+      "name": "Get Products",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1984,
+        352
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Validate Input').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.id !== undefined);\nconst byId = {};\nfor (const r of rows) byId[Number(r.id)] = r;\n\nconst problems = [];\nconst lines = [];\n\nfor (const it of input.items) {\n  const p = byId[it.product_id];\n  if (!p) { problems.push(`Product ${it.product_id} was not found.`); continue; }\n  if (!p.is_available || Number(p.stock_qty) <= 0) { problems.push(`${p.name} is not available right now.`); continue; }\n  if (Number(p.stock_qty) < it.quantity) { problems.push(`Only ${p.stock_qty} of ${p.name} left in stock (requested ${it.quantity}).`); continue; }\n  const price = Number(p.price);\n  lines.push({\n    product_id: it.product_id,\n    name: p.name,\n    quantity: it.quantity,\n    unit_price: price,\n    line_total: Math.round(price * it.quantity * 100) / 100,\n    stock_qty: Number(p.stock_qty)\n  });\n}\n\nreturn [{\n  json: {\n    ...input,\n    cart: lines,\n    ok: problems.length === 0,\n    status: problems.some(m => m.startsWith('Only')) ? 'out_of_stock' : 'unavailable',\n    message: problems.join(' ')\n  }\n}];"
+      },
+      "id": "c1d6789f-5237-4913-8dcb-2fae67257574",
+      "name": "Build Cart",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d1000002-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          }
+        },
+        "options": {}
+      },
+      "id": "986fe201-cc2d-4de7-84e6-15e8c145b085",
+      "name": "Cart OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2432,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b0000003-0000-4000-8000-000000000001",
+              "name": "status",
+              "type": "string",
+              "value": "={{ $json.status }}"
+            },
+            {
+              "id": "b0000003-0000-4000-8000-000000000002",
+              "name": "message",
+              "type": "string",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "62111f10-ae2b-467d-95dc-d074dec1e7ca",
+      "name": "Result - Problem",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2208,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "getAll",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "settings",
+        "limit": 1,
+        "filterType": "none"
+      },
+      "id": "0bbc4da1-deb2-42ed-b83d-76dc792a3ee2",
+      "name": "Get Settings",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2656,
+        352
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cart = $('Build Cart').first().json;\nconst settings = $input.first().json || {};\nconst vipRate = Number(settings.vip_discount_percent ?? 0);\nconst vipThreshold = Number(settings.vip_threshold ?? 0);\n\nconst subtotal = Math.round(cart.cart.reduce((s, l) => s + l.line_total, 0) * 100) / 100;\nconst isVip = cart.is_vip === true;\nconst discountPercent = isVip ? vipRate : 0;\nconst discountAmount = Math.round(subtotal * discountPercent) / 100;\nconst total = Math.round((subtotal - discountAmount) * 100) / 100;\nconst newTotalSpent = Math.round((Number(cart.total_spent) + total) * 100) / 100;\nconst becomesVip = !isVip && vipThreshold > 0 && newTotalSpent >= vipThreshold;\n\nconst itemsText = cart.cart.map(l => `• ${l.quantity} x ${l.name} - ${l.line_total} EGP`).join('\\n');\n\nreturn [{\n  json: {\n    ...cart,\n    subtotal,\n    discount_percent: discountPercent,\n    discount_amount: discountAmount,\n    total,\n    discount_reason: isVip ? 'VIP customer' : 'none',\n    new_total_spent: newTotalSpent,\n    becomes_vip: becomesVip,\n    items_text: itemsText\n  }\n}];"
+      },
+      "id": "dff6f0a0-8e44-4af5-b53e-aed7958dabc5",
+      "name": "Calculate Totals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const calc = $('Calculate Totals').first().json;\nconst orderId = $input.first().json.id;\n\nreturn calc.cart.map(l => ({\n  json: {\n    order_id: orderId,\n    product_id: l.product_id,\n    quantity: l.quantity,\n    unit_price: l.unit_price,\n    new_stock: l.stock_qty - l.quantity\n  }\n}));"
+      },
+      "id": "8d48ce42-c580-4525-91d7-8da74ae496bd",
+      "name": "Build Order Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3776,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "order_items",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $json.order_id }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $json.product_id }}"
+            },
+            {
+              "fieldId": "quantity",
+              "fieldValue": "={{ $json.quantity }}"
+            },
+            {
+              "fieldId": "unit_price",
+              "fieldValue": "={{ $json.unit_price }}"
+            }
+          ]
+        }
+      },
+      "id": "d49974f2-8fdd-4143-8931-6a320315b1fc",
+      "name": "Insert Order Items",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4000,
+        240
+      ],
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "update",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "products",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.product_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock_qty",
+              "fieldValue": "={{ $('Build Order Items').all().find(i => Number(i.json.product_id) === Number($json.product_id)).json.new_stock }}"
+            },
+            {
+              "fieldId": "is_available",
+              "fieldValue": "={{ $('Build Order Items').all().find(i => Number(i.json.product_id) === Number($json.product_id)).json.new_stock > 0 }}"
+            }
+          ]
+        }
+      },
+      "id": "15cf222b-08c4-4a29-a456-4f42c8810e58",
+      "name": "Update Stock",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4224,
+        240
+      ],
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "update",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "customers",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Calculate Totals').first().json.customer_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Calculate Totals').first().json.phone }}"
+            },
+            {
+              "fieldId": "total_spent",
+              "fieldValue": "={{ $('Calculate Totals').first().json.new_total_spent }}"
+            },
+            {
+              "fieldId": "last_interaction_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "is_vip",
+              "fieldValue": "={{ $('Calculate Totals').first().json.is_vip || $('Calculate Totals').first().json.becomes_vip }}"
+            }
+          ]
+        }
+      },
+      "id": "da6c3136-0447-4c58-ac11-4f6947791214",
+      "name": "Update Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4448,
+        240
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d1000003-0000-4000-8000-000000000001",
+              "leftValue": "={{ $('Calculate Totals').first().json.becomes_vip }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          }
+        },
+        "options": {}
+      },
+      "id": "fff81bc8-7e1e-4187-92ad-1741ddcd0928",
+      "name": "Newly VIP?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        4672,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "update",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "customers",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Calculate Totals').first().json.customer_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "vip_since",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "8265d8f7-7a7d-4468-89d1-f831228118bc",
+      "name": "Set VIP Since",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4896,
+        144
+      ],
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "projectRef": "hspzkuwvnmpjyxppnbsu",
+        "tableId": "orders",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $('Calculate Totals').first().json.customer_id }}"
+            },
+            {
+              "fieldId": "total",
+              "fieldValue": "={{ $('Calculate Totals').first().json.total }}"
+            },
+            {
+              "fieldId": "discount_percent",
+              "fieldValue": "={{ $('Calculate Totals').first().json.discount_percent }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "closed"
+            },
+            {
+              "fieldId": "result",
+              "fieldValue": "not_successful"
+            },
+            {
+              "fieldId": "cancel_reason",
+              "fieldValue": "customer_cancelled"
+            },
+            {
+              "fieldId": "delivery_address",
+              "fieldValue": "={{ $('Calculate Totals').first().json.delivery_address }}"
+            },
+            {
+              "fieldId": "closed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "25eabc6e-a8b9-451a-94cf-018de9c33de3",
+      "name": "Insert Cancelled Order",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3552,
+        480
+      ],
+      "credentials": {
+        "supabaseOAuth2Api": {
+          "id": "XSDstPdk7OqKNLbD",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ask For Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved": {
+      "main": [
+        [
+          {
+            "node": "Insert into orders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Cancelled Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Find Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Customer": {
+      "main": [
+        [
+          {
+            "node": "Is New Customer?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Customer?": {
+      "main": [
+        [
+          {
+            "node": "Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Customer": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Order Confirmation&Receipt": {
+      "main": [
+        [
+          {
+            "node": "Result - Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Order Cancellation Reply": {
+      "main": [
+        [
+          {
+            "node": "Result - Cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Input OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input OK?": {
+      "main": [
+        [
+          {
+            "node": "Get Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Result - Problem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Products": {
+      "main": [
+        [
+          {
+            "node": "Build Cart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Cart": {
+      "main": [
+        [
+          {
+            "node": "Cart OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cart OK?": {
+      "main": [
+        [
+          {
+            "node": "Get Settings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Result - Problem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Settings": {
+      "main": [
+        [
+          {
+            "node": "Calculate Totals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Totals": {
+      "main": [
+        [
+          {
+            "node": "Ask For Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert into orders": {
+      "main": [
+        [
+          {
+            "node": "Build Order Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order Items": {
+      "main": [
+        [
+          {
+            "node": "Insert Order Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Order Items": {
+      "main": [
+        [
+          {
+            "node": "Update Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Stock": {
+      "main": [
+        [
+          {
+            "node": "Update Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Customer": {
+      "main": [
+        [
+          {
+            "node": "Newly VIP?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Newly VIP?": {
+      "main": [
+        [
+          {
+            "node": "Set VIP Since",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Order Confirmation&Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set VIP Since": {
+      "main": [
+        [
+          {
+            "node": "Send Order Confirmation&Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Cancelled Order": {
+      "main": [
+        [
+          {
+            "node": "Send Order Cancellation Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "cfc1ecbf-18b6-48be-ae51-91038abdc3d4",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "55dc97c5d36875e47bfba83a744e67beaaa606fd1471950e8ed65ed158f2f715"
+  },
+  "nodeGroups": [],
+  "id": "bnDsdFH3faVNZDRY",
+  "tags": []
+}

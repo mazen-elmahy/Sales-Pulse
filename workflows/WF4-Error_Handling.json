@@ -1,0 +1,146 @@
+{
+  "name": "solo- Error Handling",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        64
+      ],
+      "id": "ccabea2a-1649-4c87-9a78-fe9c961e4cd2",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "tableId": "error_log",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "workflow_name",
+              "fieldValue": "={{ $json.workflow.name }}"
+            },
+            {
+              "fieldId": "execution_url",
+              "fieldValue": "={{ $json.execution.url }}"
+            },
+            {
+              "fieldId": "failed_node",
+              "fieldValue": "={{ $json.execution.lastNodeExecuted }}"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "={{ $json.execution.error.message }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now.format('yyyy-MM-dd hh:mma')}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -128
+      ],
+      "id": "c0afd9ef-2cfc-49e6-b69b-3b15b85bc32d",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "k5O2DbWQmfMVpokW",
+          "name": "Databse"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "elmahymazen434@gmail.com",
+        "subject": "Workflow Failed!",
+        "emailType": "text",
+        "message": "=🚨 Workflow failed\nWorkflow: {{ $json.workflow.name }}\nNode: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\nURL: {{ $json.execution.url }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -144,
+        64
+      ],
+      "id": "be031b3a-dd24-43f0-af3b-e92be2ab0ed1",
+      "name": "Send a message",
+      "webhookId": "436c1561-ff9f-494b-9b28-1d85a28a84cc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "e1Ny7kRZmKWGKQjh",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1847289993",
+        "text": "=🚨 Workflow failed\nWorkflow: {{ $json.workflow.name }}\nNode: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\nURL: {{ $json.execution.url }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -144,
+        256
+      ],
+      "id": "6c0b3570-cd6f-4bc3-87c4-a9918da3c046",
+      "name": "Send a text message",
+      "webhookId": "bd1a7bc7-c4f1-4e39-bb73-b30d2a597412",
+      "credentials": {
+        "telegramApi": {
+          "id": "aW3sHlE8osf33vGw",
+          "name": "Telegram sales solo"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "02d27d74-7ef1-49b5-a8ae-6202f480705a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c3cc6f73f0d96ecc905a495116c58a314163efd09ecfd5fb069ec3ead57c2aa3"
+  },
+  "nodeGroups": [],
+  "id": "jxpRDLSna6hIN8hT",
+  "tags": []
+}
